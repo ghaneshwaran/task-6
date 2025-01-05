@@ -1,0 +1,51 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, lower, regexp_replace, when, count
+
+# Initialize Spark Session
+def init_spark():
+    spark = SparkSession.builder \
+        .appName("Big Data Sentiment Analysis") \
+        .getOrCreate()
+    return spark
+
+# Load Dataset
+def load_data(spark, file_path):
+    data = spark.read.csv(file_path, header=True, inferSchema=True)
+    print(f"Data Schema:\n")
+    data.printSchema()
+    print(f"Sample Data:\n")
+    data.show(5)
+    return data
+
+# Preprocess Data
+def preprocess_data(data):
+    # Filter out neutral ratings (if 3 exists)
+    data = data.filter(col('Rating').isNotNull())
+    data = data.withColumn("sentiment", when(col("Rating") > 3, 1).otherwise(0))
+
+    # Clean review text
+    data = data.withColumn("Review", lower(col("Review")))
+    data = data.withColumn("Review", regexp_replace(col("Review"), "[^a-zA-Z\s]", ""))
+    print("Processed Data Sample:")
+    data.select("Review", "sentiment").show(5)
+    return data
+
+# Analyze Data Distribution
+def data_distribution(data):
+    sentiment_dist = data.groupBy("sentiment").agg(count("sentiment").alias("count"))
+    print("Sentiment Distribution:")
+    sentiment_dist.show()
+
+# Main Function
+def main():
+    file_path = "/content/amazon Food Reviews 100k Dataset.csv"  # Replace with your dataset path
+
+    spark = init_spark()
+    data = load_data(spark, file_path)
+    data = preprocess_data(data)
+    data_distribution(data)
+
+    # Additional analysis can be added here, such as feature engineering or model training.
+
+if __name__ == "__main__":
+    main()
